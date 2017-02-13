@@ -1,0 +1,149 @@
+---
+title: "Many models exploration"
+output: html_notebook
+---
+
+Load, build and summarise by transect the grasslands dataset. 
+
+```{r load-build-data-set}
+library(tidyverse)
+library(magrittr)
+library(GrasslandAllocatr)
+library(corrr)
+library(GGally)
+library(lme4)
+
+raw_field_data <- GrasslandAllocatr::field_data_raw_2014 %>%
+        separate(col = transect_number.quadrat.species.percent_cover, 
+                 into = c("transect_number", "quadrat", "species", "percent_cover"), sep = ",")
+
+management_lookup_data <- GrasslandAllocatr::field_site_management_2014 %>%
+        separate(col = "transect_number.size.date.orientation.assistant.management.burn_season.years_since.biomass_reduction_year.management_unit",
+                 into = c("transect_number",  "size", "date", "orientation", "assistant", "management", "burn_season", "years_since", "biomass_reduction_year", "management_unit"), sep = ",")
+
+species_lookup_data <- GrasslandAllocatr::field_species_lookup_table_2014 %>%
+        separate(col = 
+                         species.origin.growth_form.type,
+                 into = c("species", "origin", "growth_form", "type"), sep = ",")
+
+grasslands <- GrasslandAllocatr::lookup_species(raw_field_data = raw_field_data,
+                                                species_lookup_data = species_lookup_data) %>%
+        GrasslandAllocatr::lookup_management(raw_field_data = .,
+                                             management_lookup_data = management_lookup_data) %>% mutate(transect_number = as.double(transect_number),  quadrat = as.double(quadrat), percent_cover = as.double(percent_cover), size = as.double(size), years_since = as.double(years_since), biomass_reduction_year = as.double(biomass_reduction_year), management = as.factor(management), burn_season = as.factor(burn_season), management_unit = as.factor(management_unit), date = lubridate::as_date(date)) %>% tbl_df()
+
+grasslands %<>% 
+        GrasslandAllocatr::summarise_by_transect(.)
+grasslands %>% 
+        print
+```
+
+### Let's check for correllations:
+
+```{r check-corr, fig.width=5}
+# note rearrange places strongest correlations closest to the diagonal, weakest are further away.
+grasslands %>% 
+        keep(is.numeric) %>% 
+        corrr::correlate() %>% 
+        corrr::rearrange() %>%
+        corrr::rplot(legend = TRUE)
+```
+
+Exotic diversity and exotic percent cover are strongly (positively) correllated.
+Years since and Biomass reduction year are strongly correllated, which makes sense because years since is calculated from biomass reduction year. Bare Ground is correllated with biomass reduction year and years since.
+There is a weak correllation between size of the management unit and exotic diversity.
+
+Should we drop any variables? Lets drop biomass reduction year, because we are actually only interested in years since last burn.
+
+## Within group regressions
+
+Looking at all the data, it doesnt appear that there are any strong correllations between any of the measured variables that we would expect. The strongest correlations are between biomass reductionand bare-ground, but these variables are auto-correllated due to one being directly computed from the other. The second strongest correllation also makes ecological sense: That you would have a greater diversity of exotic plants when you have greater cover. 
+
+Lets dig around within management-action groups to see whether there are correllations between any of the other co-variates.
+
+```{r within-group-corrs}
+
+add_title <- function(plot_object, title = "title") {
+        plot_object +
+                ggtitle(label = title)
+}
+
+correlations <- grasslands %>% 
+        group_by(management) %>%
+        filter(management != "DN", management != "Slashing_WC") %>% # not enough reps to generate corr mat
+        nest() %>%
+        mutate(corr_mat = map(data, ~keep(.x = ., .p =is.numeric) %>% corrr::correlate(.))) %>%
+        mutate(plot = map(corr_mat, ~rplot(rdf = .))) %>%
+        mutate(plot = map2(.x = plot, .y = management, .f = ~add_title(plot_object = .x, title = as.character(.y))))
+
+correlations$plot[1:3]
+```
+
+It appears that there are different dynamics going on between the variables, depending on what sort of management action is undertaken there.
+
+```{r regressions}
+regressions <-
+        grasslands %>%
+        group_by(management) %>%
+        filter(management != "DN", management != "Slashing_WC") %>%
+        select(-transect_number, -management_unit) %>%
+        nest() %>%
+        mutate(models = map(data, ~lm(data = ., NF_diversity ~ BG_pc + E_pc + E_diversity + years_since + size)))
+
+regressions %>% 
+        mutate(tidy = map(models, broom::tidy)) %>%
+        unnest(tidy)
+
+regressions %>% 
+        mutate(fitted_vals = map(models, broom::augment)) %>% 
+        unnest(fitted_vals)
+
+regressions %>% 
+        mutate(model_fits = map(models, broom::glance)) %>%
+        unnest(model_fits)
+
+```
+
+Our models suck. Lets have a look at the shape of the realtionship between all of the variables.
+
+```{r}
+grasslands %>%
+        filter(management %in% c("FIRE + WC", "WC")) %>%
+        mutate(management = as.factor(management)) %>%
+        select(-transect_number,-biomass_reduction_year, -assistant, -date, -orientation, -management_unit) %>%
+        ggpairs(., mapping = aes(color = management, alpha = 0.2), columns = c("BG_pc", "E_pc", "NF_diversity", "E_diversity", "years_since", "size"))
+
+```
+
+
+
+
+## Exploring one model:
+
+### Scale and centre:
+
+```{r scale_centre}
+grasslands_scaled_centred <-
+        grasslands %>%  
+        select(-transect_number,-biomass_reduction_year, -assistant, -date, -orientation, -management_unit) %>%
+        mutate_if(., .predicate = is.numeric, .funs = funs(scale(x = .)), center = TRUE, scale = TRUE)
+
+grasslands_scaled_centred %>% print()
+```
+some text
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
