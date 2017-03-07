@@ -3,7 +3,7 @@ title: "Fitting many models with purrr, broom, dplyr"
 output: html_notebook
 ---
 
-Lets start simple, lets highlight some basic tools that we will need later, chiefly tools from the broom package.
+Let's start simple, highlighting some basic tools that we will need later: chiefly, tools from the broom package.
 
 # A tidy workflow for working with one model
 
@@ -12,20 +12,31 @@ Broom formatting tidy model summaries, tidies statistical models into tidy data-
 library(broom) # For tidying fittted model output into tidy datafraems
 ```
 
-
 ## What are tidy dataframes / tidy data?
 
-## Whats in a model? Sweeping up with broom
+## What's in a model? Sweeping up with broom
 
-- tidy: component level statistics: coefficients, p-values, etc. ONE PER VARIABLE
-- augment: observation level -fitted values, residuals. ONE PER OBSERVATION.
-- glance - model level - R2, F-stat, deviance. ONE PER MODEL.
+- `broom::tidy` model component-level statistics: coefficient estimates
+- `broom::augment` observation-level -fitted values, residuals. .
+- `broom::glance` - model-level statistics: e.g. ${R}^{2}$ , F-stat, deviance.
+
+```{r demo-broom-functions}
+library(tidyverse)
+data("diamonds")
+lm_diamonds <- lm(price ~ carat, data = diamonds)
+lm_diamonds %>% broom::tidy() # one observation per model term
+lm_diamonds %>% broom::augment() # one observation per observation in the original data
+lm_diamonds %>% broom::glance() # one observation per model
+```
+
+
+
 
 Each row is:
 
 - tidy - a coefficient - nesting required
 - augment - an observation from the original data, adds new cols to the original data, such as fitted values - nesting required
-- glance- one row per model - nesting required
+- glance- one row per model - nesting not required
 
 ## Why would we want tidy model summaries?
 
