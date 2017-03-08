@@ -69,56 +69,72 @@ Don't know what a pipe (`%>%`) is? Click here: [https://github.com/egouldo/VicBi
 - Tidy data works with tidy tools: we can easily visualise broom's output with `ggplot`, e.g. plotting the model in dataspace, generate coefficient plots, survival curves, etc.
 - Working with MANY models: tidy model outputs can be easily combined, and compared.
 
-# Why do we fit multiple models?
+# When do we fit multiple models?
 
-- 'insight into the data and the relative merits of different models' removing the blindfold paper
-- 'explore the process of fitting' - removing the blindfold paper
-- explorign different parameters, methods, bootstrapping replicates, subgroup models, ensemble voting (andrew robinson slides)
-
-Example instances, from:
-
-1. Exploring the space of all possible models: E.g. for a given family, can explore different forms, like for a linear model we could generate all models with main efects. 
-2. Varying model setting. Systematically alter the tuning parameters to observe the result. 
-3. Fitting the same model to different datasets. cross-validation, bootstrapping, simulating, sensitivity analyses, etc.
+1. Exploring the space of all possible models and their relative merits: E.g. for a given model family, you can explore different forms, for example, for a linear model we could generate all models with main effects.
+2. Varying model settings: e.g. systematically alter the tuning parameters to observe the result. 
+3. Fitting the same model to different datasets: cross-validation, bootstrapping, simulating data, sensitivity analyses, etc.
 4. Finding global optima - e.g. when model fitting might not converge to global optimum, you can have a collection of models generated from multiple random starts.
+5. Fitting many simple models ot smaller sub-groups of your data rather than a single complex model to the whole dataset
 
-But difficult to visualise simultaneously. So we need to explore smaller sets of interesting models. We can narrow this down by first calculating descriptive statistics at multiple levels.
+## Computational challenges of fitting many models
 
-So this means that we often want to perform the same operation of different sets of data. How do we easily store, and access this data repetitively. Could program in for-loops, and write modelling functions. But there are a suite of tools out there that get the job done more efficiently (both in terms of computationally, and in terms of the actual code that you write).
+We can distill the above tasks into two primary workflows:
+
+1. When you have a single model that you want to repeatedly fit to different sub-sets of the larger data set.
+2. When you have a selection of different models you want to fit to the same piece of data repeatedly.
+
+You could solve this computationally by fitting many models using for-loops. Or, when fitting fewer models, you can store your models and their resultant outputs as objects in your global environment.
+
+- Loops: slow, *cumbersome* to write
+- Intermediate objects: clutter up your global environment, must keep mental-track of each object
+- For either method, you still need to extract the desired model outputs from each fitted model, wrangle them, combine them, perhaps wrangle some more, before you can analyse and/or visualise your many models simultaneously.
+
+But there are a suite of tools out there that get the job done more efficiently (both in terms of computational efficiency, and in terms of the actual code that you write)!
+
+## A fresh approach: list-columns and nested data frames
+
+
 
 # What packages are we working with and what do they do?
+
+
+
+
+
+## A workflow for same model, many pieces:
+
+What do we need? (getting around the loop / many objects conundrum)
+
+1. dplyr: create new columns / variables, amend existing ones
+2. tidyr: nested data with list columns - method of storing ... facilitates applying 
+3. purrr: map functions, map nested dataframes to the modeling function or to broom function
 
 ```{r load-libs}
 library(glm2) # fit models, glms
 library(dplyr) # data manipulation
 library(tidyr) # For reshaping dataframes, specifically nesting
 library(purrr) # For applying functions to nested dataframes
-library(ggplot2) # good lookin plots, duh
+library(ggplot2) # good lookin' plots
 ```
-
-I see two main workflows: 
-1. when you have a single model that you want to repetitively fit to different pieces of the data.
-2. when you have a selection of different models.
-
-## A workflow for same model, many pieces:
-
-What do we need?
-
-1. dplyr: create new columns
-2. tidyr: nested data with list columns
-3. purrr: map functions, map nested dataframes to the modeling function or to broom function
 
 ### List-columns
 
-Regular dataframes are essentially a collection of lists. So why cant we have a list of dataframes, say? Well we can 
-using list-columns. `tidyr::nest()` nests dataframes into a single 'value' in the dataframe, which is essentially equivalent to a single element at the top-level of the list.
 
 # Broom and nesting
 Each row is:
 
 - tidy - a coefficient - nesting required
 - augment - an observation from the original data, adds new cols to the original data, such as fitted values - nesting required
-- glance- one row per model - nesting not required
+- glance- one row per model - nesting not necessarily required 
+
+
+
+
+
+
+
+
 
 # References:
 
@@ -126,6 +142,14 @@ Robinson, D. (2014). broom: An R Package for Converting Statistical Analysis Obj
 
 Robinson, D., (2015) broom: An R Package to Convert Statistical Models into Tidy Data Frames, Paper presented at UP-STAT2015: Statistical Modelling in the Era of Data Science, SUNY, 4th November 2015, [http://varianceexplained.org/files/broom_presentation.pdf](http://varianceexplained.org/files/broom_presentation.pdf)
 
+Wickham, H. (2014) Tidy data. Journal of Statistical Software. 59 (10). URL: [http://www.jstatsoft.org/v59/i10/paper](http://www.jstatsoft.org/v59/i10/paper)
+
 Wickham, H., Cook, D., Hofmann, H. (2015) Visualizing statistical models: removing the blindfold. Statistical Analysis and Data Mining: THe ASA Data Science Journal, 8(4), 203-235, doi: 10.1002/sam.11271
 
-R For Data Science: Chapter 21 -- Iteration. [http://r4ds.had.co.nz/iteration.html#introduction-14](http://r4ds.had.co.nz/iteration.html#introduction-14)
+Wickham, H. & Grolemund, G. (2017) R for data Science, Chapter 21 Iteration, O'Reilly, [http://r4ds.had.co.nz/iteration.html#introduction-14](http://r4ds.had.co.nz/iteration.html#introduction-14)
+
+Wickham, H. & Grolemund, G. (2017) R for data Science, Chapter 12 Tidy Data, O'Reilly, [http://r4ds.had.co.nz/tidy-data.html](http://r4ds.had.co.nz/tidy-data.html)
+
+## Some nice examples:
+
+Linguistics, TD deletion: [http://jofrhwld.github.io/blog/2016/05/01/many_models.html](http://jofrhwld.github.io/blog/2016/05/01/many_models.html)
