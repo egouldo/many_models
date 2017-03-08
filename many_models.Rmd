@@ -88,6 +88,13 @@ What do we need?
 Regular dataframes are essentially a collection of lists. So why cant we have a list of dataframes, say? Well we can 
 using list-columns. `tidyr::nest()` nests dataframes into a single 'value' in the dataframe, which is essentially equivalent to a single element at the top-level of the list.
 
+# Broom and nesting
+Each row is:
+
+- tidy - a coefficient - nesting required
+- augment - an observation from the original data, adds new cols to the original data, such as fitted values - nesting required
+- glance- one row per model - nesting not required
+
 # References:
 
 Robinson, D. (2014). broom: An R Package for Converting Statistical Analysis Objects Into Tidy Data Frames. [https://arxiv.org/pdf/1412.3565v2.pdf](https://arxiv.org/pdf/1412.3565v2.pdf)
