@@ -92,15 +92,10 @@ You could solve this computationally by fitting many models using for-loops. Or,
 
 But there are a suite of tools out there that get the job done more efficiently (both in terms of computational efficiency, and in terms of the actual code that you write)!
 
-## A fresh approach: list-columns and nested data frames
+## A fresh data structure: list-columns and *nested data frames*
 
 
-
-# What packages are we working with and what do they do?
-
-
-
-
+ 
 
 ## A workflow for same model, many pieces:
 
@@ -144,7 +139,7 @@ Robinson, D., (2015) broom: An R Package to Convert Statistical Models into Tidy
 
 Wickham, H. (2014) Tidy data. Journal of Statistical Software. 59 (10). URL: [http://www.jstatsoft.org/v59/i10/paper](http://www.jstatsoft.org/v59/i10/paper)
 
-Wickham, H., Cook, D., Hofmann, H. (2015) Visualizing statistical models: removing the blindfold. Statistical Analysis and Data Mining: THe ASA Data Science Journal, 8(4), 203-235, doi: 10.1002/sam.11271
+Wickham, H., Cook, D., Hofmann, H. (2015) Visualizing statistical models: removing the blindfold. Statistical Analysis and Data Mining: The ASA Data Science Journal, 8(4), 203-235, doi: 10.1002/sam.11271
 
 Wickham, H. & Grolemund, G. (2017) R for data Science, Chapter 21 Iteration, O'Reilly, [http://r4ds.had.co.nz/iteration.html#introduction-14](http://r4ds.had.co.nz/iteration.html#introduction-14)
 
@@ -152,4 +147,19 @@ Wickham, H. & Grolemund, G. (2017) R for data Science, Chapter 12 Tidy Data, O'R
 
 ## Some nice examples:
 
+Using `purrr`: one weird trick (data-frames with list columns to make evaluating models easier) [http://ijlyttle.github.io/isugg_purrr/presentation.html#(1)](http://ijlyttle.github.io/isugg_purrr/presentation.html#(1))
+
 Linguistics, TD deletion: [http://jofrhwld.github.io/blog/2016/05/01/many_models.html](http://jofrhwld.github.io/blog/2016/05/01/many_models.html)
+
+K-fold cross validation with `modelr` and `broom` [https://drsimonj.svbtle.com/k-fold-cross-validation-with-modelr-and-broom](https://drsimonj.svbtle.com/k-fold-cross-validation-with-modelr-and-broom)
+
+Tidy bootstrapping with `dplyr` and `broom` [https://cran.r-project.org/web/packages/broom/vignettes/bootstrapping.html](https://cran.r-project.org/web/packages/broom/vignettes/bootstrapping.html)
+
+Modeling gene expression with `broom`: a case study in tidy analysis [http://varianceexplained.org/r/tidy-genomics-broom/](http://varianceexplained.org/r/tidy-genomics-broom/)
+
+# Session
+
+```{r session}
+sessionInfo()
+```
+
