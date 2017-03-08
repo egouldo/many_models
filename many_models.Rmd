@@ -10,12 +10,23 @@ Let's start simple, highlighting some basic tools that we will need later: chief
 
 # A tidy workflow for working with one model
 
-Broom generates tidy model summaries, turning statistical models into tidy data-frames.
-```{r load-broom}
-library(broom)
-```
+
 
 ## What are tidy dataframes / tidy data?
+
+Hadley (Wickham, 2014) puts this well: 
+
+> "tidy datasets provide a standardised way to link the structure of a dataset (its physical layout) with its semantics (its meaning)"
+
+Appearance layout of tidy data:
+
+- Each variable is represented by a single column
+- each observation has its own row
+- each value has its own cell
+
+![From Wickham (2017), fig.12.1: http://r4ds.had.co.nz/images/tidy-1.png](http://r4ds.had.co.nz/images/tidy-1.png)
+
+More info: [https://github.com/egouldo/VicBioCon17_data_wrangling/blob/master/modules/06_tidy_data.md](https://github.com/egouldo/VicBioCon17_data_wrangling/blob/master/modules/06_tidy_data.md)
 
 ## What's in a model? Sweeping up with broom
 
@@ -28,8 +39,16 @@ summary(lm_car) # messy output
 
 1. Extracting coefficients takes multiple steps `data.frame(coef(summary(lm_car)))`
 2. Information is stored in rownames: combining models requires wrangling
-3. Column names are annoying: must access with $“Pr(>|t|)”, and is converted to Pr...t..
+3. Column names are annoying: must access with `$“Pr(>|t|)”`, and is converted to `Pr...t..`
 4. Information computed in the print method is not stored, e.g. F-stat and p-values
+
+```{r load-broom}
+# Enter broom:
+library(broom)
+```
+
+Broom generates tidy model summaries, turning statistical models into tidy data-frames.
+
 
 - `broom::tidy` model component-level statistics: coefficient estimates, SE, etc.
 - `broom::augment` observation-level, fitted values, residuals etc.
