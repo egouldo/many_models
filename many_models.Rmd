@@ -33,6 +33,7 @@ More info: [https://github.com/egouldo/VicBioCon17_data_wrangling/blob/master/mo
 Regressions are messy in R... 
 
 ```{r fit-single-mod}
+library(magrittr)
 lm_car <- lm(mpg ~ wt + qsec, data = mtcars)
 summary(lm_car) # messy output
 ```
@@ -92,43 +93,105 @@ You could solve this computationally by fitting many models using for-loops. Or,
 
 But there are a suite of tools out there that get the job done more efficiently (both in terms of computational efficiency, and in terms of the actual code that you write)!
 
-## A fresh data structure: list-columns and *nested data frames*
-
-
- 
-
 ## A workflow for same model, many pieces:
 
 What do we need? (getting around the loop / many objects conundrum)
 
 1. dplyr: create new columns / variables, amend existing ones
-2. tidyr: nested data with list columns - method of storing ... facilitates applying 
+2. tidyr: nested data with list-columns
 3. purrr: map functions, map nested dataframes to the modeling function or to broom function
 
-```{r load-libs}
-library(glm2) # fit models, glms
+```{r load-libs-data}
 library(dplyr) # data manipulation
 library(tidyr) # For reshaping dataframes, specifically nesting
 library(purrr) # For applying functions to nested dataframes
 library(ggplot2) # good lookin' plots
+spp_mods <- feather::read_feather("./data/grasslands_data")
+
+spp_mods
+
+spp_mods %>%
+        ggplot(aes(y = percent_cover, x = BG_pc, colour = type)) +
+        geom_point() + facet_grid(~ type)
+
+spp_mods %>%
+        ggplot(aes(y = percent_cover, x = E_pc, colour = type)) +
+        geom_point() + facet_grid(~ type)
+
+spp_mods %>%ggplot(aes(y = percent_cover, x = E_diversity, colour = type)) +
+        geom_point() + facet_grid(~ type)
+
 ```
 
-### List-columns
+### nest the data: list-columns
 
+```{r nest}
+spp_mods <-
+        spp_mods %>%
+        group_by(species, type) %>%
+        nest()
+spp_mods
+```
 
-# Broom and nesting
-Each row is:
+List-columns are great because they keep all related objects together (i.e. in a row). We do not have to keep them manually in sync - the dataframe structure does this for us.
 
-- tidy - a coefficient - nesting required
-- augment - an observation from the original data, adds new cols to the original data, such as fitted values - nesting required
-- glance- one row per model - nesting not necessarily required 
+### Define a model, apply it to each species
 
+```{r apply-mod}
+species_model <- function(dataframe){
+        lm(percent_cover ~ BG_pc + E_pc + E_diversity + management, data = dataframe)
+}
 
+spp_mods <-
+        spp_mods %>%
+        mutate(model = purrr::map(data, species_model))
+spp_mods
+```
 
+### sweep up with broom
 
+```{r broom}
+spp_mods <-
+        spp_mods %>%
+        dplyr::mutate(coefs = map(model, broom::tidy),
+                      fitted_vals = map(model, broom::augment),
+                      model_stats = map(model, broom::glance))
 
+spp_mods
 
+```
 
+Viewing tools for nested data frames are not great, yet:
+```{r}
+spp_mods %>% unnest(coefs)
+spp_mods %>% unnest(fitted_vals)
+spp_mods %>% unnest(model_stats)
+
+spp_mods$coefs[[1]] # coefs for first spp
+```
+
+Plot the coefficients for first 5 spp
+
+```{r plot-coefs}
+spp_mods %>% dplyr::slice(1:5) %>%
+        unnest(coefs) %>%
+        mutate(lower_CI = estimate - 1.96 * std.error,
+               upper_CI = estimate + 1.96 * std.error,
+               significant = ifelse(0 >= lower_CI & 0 <= upper_CI, "no", "yes"),
+               term = factor(term, levels = term)) %>%
+        ggplot(aes(y = term, x = estimate, colour = significant)) +
+        geom_point() +
+        geom_errorbarh(aes(xmax = lower_CI, xmin = upper_CI), height = 0) +
+        geom_vline(xintercept = 0, linetype = "dashed", colour = "grey60") +
+        facet_grid(~species)
+
+```
+
+# What other plots can we make?
+
+```{r}
+
+```
 
 
 # References:
