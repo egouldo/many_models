@@ -26,14 +26,14 @@ species_lookup_data <- GrasslandAllocatr::field_species_lookup_table_2014 %>%
                          species.origin.growth_form.type,
                  into = c("species", "origin", "growth_form", "type"), sep = ",")
 
-grasslands <- GrasslandAllocatr::lookup_species(raw_field_data = raw_field_data,
+grasslands_quadrat <- GrasslandAllocatr::lookup_species(raw_field_data = raw_field_data,
                                                 species_lookup_data = species_lookup_data) %>%
         GrasslandAllocatr::lookup_management(raw_field_data = .,
                                              management_lookup_data = management_lookup_data) %>% mutate(transect_number = as.double(transect_number),  quadrat = as.double(quadrat), percent_cover = as.double(percent_cover), size = as.double(size), years_since = as.double(years_since), biomass_reduction_year = as.double(biomass_reduction_year), management = as.factor(management), burn_season = as.factor(burn_season), management_unit = as.factor(management_unit), date = lubridate::as_date(date)) %>% tbl_df()
 
-grasslands %<>% 
+grasslands_transect <- grasslands_quadrat %>%
         GrasslandAllocatr::summarise_by_transect(.)
-grasslands %>% 
+grasslands_transect %>% 
         print
 ```
 
@@ -41,7 +41,7 @@ grasslands %>%
 
 ```{r check-corr, fig.width=5}
 # note rearrange places strongest correlations closest to the diagonal, weakest are further away.
-grasslands %>% 
+grasslands_transect %>% 
         keep(is.numeric) %>% 
         corrr::correlate() %>% 
         corrr::rearrange() %>%
@@ -67,7 +67,7 @@ add_title <- function(plot_object, title = "title") {
                 ggtitle(label = title)
 }
 
-correlations <- grasslands %>% 
+correlations <- grasslands_transect %>% 
         group_by(management) %>%
         filter(management != "DN", management != "Slashing_WC") %>% # not enough reps to generate corr mat
         nest() %>%
@@ -82,7 +82,7 @@ It appears that there are different dynamics going on between the variables, dep
 
 ```{r regressions}
 regressions <-
-        grasslands %>%
+        grasslands_transect %>%
         group_by(management) %>%
         filter(management != "DN", management != "Slashing_WC") %>%
         select(-transect_number, -management_unit) %>%
@@ -110,11 +110,10 @@ grasslands %>%
         filter(management %in% c("FIRE + WC", "WC")) %>%
         mutate(management = as.factor(management)) %>%
         select(-transect_number,-biomass_reduction_year, -assistant, -date, -orientation, -management_unit) %>%
-        ggpairs(., mapping = aes(color = management, alpha = 0.2), columns = c("BG_pc", "E_pc", "NF_diversity", "E_diversity", "years_since", "size"))
+        ggpairs(., mapping = aes(color = management, alpha = 0.2), 
+                columns = c("BG_pc", "E_pc", "NF_diversity", "E_diversity", "years_since", "size"))
 
 ```
-
-
 
 
 ## Exploring one model:
@@ -123,25 +122,161 @@ grasslands %>%
 
 ```{r scale_centre}
 grasslands_scaled_centred <-
-        grasslands %>%  
+        grasslands_transect %>%  
         select(-transect_number,-biomass_reduction_year, -assistant, -date, -orientation, -management_unit) %>%
         mutate_if(., .predicate = is.numeric, .funs = funs(scale(x = .)), center = TRUE, scale = TRUE)
 
 grasslands_scaled_centred %>% print()
 ```
-some text
+
+OI, get site back in there, because we will include this as a random effects variable!
+
+```{r one-mod}
+
+library(lme4)
+lme4::lmer(NF_diversity ~ BG_pc + E_pc + E_diversity + (1 | management) + (1 | years_since) + log(size), data = grasslands_scaled_centred)
+```
 
 
 
 
 
+# Let's think about another way of doing this:
+
+retain individual species observations, but add the summarised quadrat variables. Plot, percent cover observation for each species, for each quadrat
+```{r}
+
+# y, by quadrat, x = summarised by transect...
+grasslands_spp_q_t <- left_join(grasslands_quadrat, grasslands_transect %>% select(1:5)) %>%
+        dplyr::filter(species != "R", species != "L", species != "LM", species != "BG")
+
+grasslands_spp_q_t %>%
+        ggplot(aes(y = percent_cover, x = BG_pc, colour = type)) +
+        geom_point()
+
+grasslands_spp_q_t %>%
+        ggplot(aes(y = percent_cover, x = E_pc, colour = type)) +
+        geom_point()
+
+grasslands_spp_q_t %>%
+        ggplot(aes(y = percent_cover, x = E_diversity, colour = type)) +
+        geom_point()
+
+# mean species percent cover by transect, and transect variables
+grasslands_spp_t_t <- left_join({grasslands_quadrat %>% group_by(transect_number, species) %>%
+        dplyr::summarise(percent_cover = mean(percent_cover))}, grasslands_quadrat %>% dplyr::select(transect_number, species, type)) %>% 
+        left_join(., grasslands_transect %>% dplyr::select(1:5))  %>%
+        dplyr::filter(species != "R", species != "L", species != "LM", species != "BG")
+
+grasslands_spp_t_t%>%
+        ggplot(aes(y = percent_cover, x = BG_pc, colour = type)) +
+        geom_point()
+
+grasslands_spp_t_t%>%
+        ggplot(aes(y = percent_cover, x = E_pc, colour = type)) +
+        geom_point()
+
+grasslands_spp_t_t%>%
+        ggplot(aes(y = percent_cover, x = E_diversity, colour = type)) +
+        geom_point()
+
+# species by quadrat, and by quadrat variables (use this, we have some nice patterns here)
+pc_quad <- grasslands_quadrat %>% 
+        group_by(transect_number, quadrat, type) %>%
+        dplyr::summarise(pc = mean(percent_cover)) %>%
+        dplyr::mutate(pc_string = "pc") %>%
+        dplyr::filter(type %in% c("BG", "NF", "NG", "E")) %>%
+        tidyr::unite(col = type, type, pc_string, sep = "_", remove = TRUE) %>% spread(key = type, value = pc, fill = 0)
+
+diversity_quad <- grasslands_quadrat %>% 
+        group_by(transect_number, quadrat, type) %>%
+        dplyr::count() %>% 
+        dplyr::filter(type %in% c("BG", "NF", "NG", "E")) %>% 
+        dplyr::mutate(diversity_string = "diversity") %>% 
+        tidyr::unite(col = type, type, diversity_string, sep = "_", remove = TRUE) %>% 
+        spread(key = type, value = n, fill = 0)
+
+grasslands_spp_q_q <- left_join(grasslands_quadrat , pc_quad) %>% left_join(., diversity_quad)   %>%
+        dplyr::filter(species != "R", 
+                      species != "L", 
+                      species != "LM", 
+                      species != "BG",
+                      management != "Slashing_WC") %>%
+        dplyr::mutate(species = factor(species), 
+                      type = factor(type),
+                      transect_number = factor(transect_number),
+                      quadrat = factor(quadrat)) %>%
+        tidyr::drop_na()
+
+grasslands_spp_q_q%>%
+        ggplot(aes(y = percent_cover, x = BG_pc, colour = type)) +
+        geom_point() + facet_grid(~ type)
+
+grasslands_spp_q_q%>%
+        ggplot(aes(y = percent_cover, x = E_pc, colour = type)) +
+        geom_point() + facet_grid(~ type)
+
+grasslands_spp_q_q%>%ggplot(aes(y = percent_cover, x = E_diversity, colour = type)) +
+        geom_point() + facet_grid(~ type)
+
+# line per species
+grasslands_spp_q_q%>%
+        ggplot(aes(y = percent_cover, x = BG_pc, colour = type, group = species)) +
+        geom_line() + facet_grid(~ type)
+
+grasslands_spp_q_q%>%
+        ggplot(aes(y = percent_cover, x = E_pc, colour = type)) +
+        geom_line() + facet_grid(~ type)
+
+grasslands_spp_q_q%>%ggplot(aes(y = percent_cover, x = E_diversity, colour = type)) +
+        geom_line() + facet_grid(~ type)
+
+```
+
+
+think about some models now...
+First let us nest the data
+
+```{r}
+grasslands_spp_q_q %>% View()
 
 
 
+spp_ok <-grasslands_spp_q_q %>% group_by(species) %>%
+        dplyr::summarise(count_man = unique(management) %>% length,
+                         count_tran = unique(transect_number) %>% length,
+                         count_quad = unique(quadrat) %>% length) %>% 
+        dplyr::filter(count_man >= 2, count_tran >= 2, count_quad >= 2) %>%
+        dplyr::select(species)
 
+grasslands_spp_q_q <- right_join(grasslands_spp_q_q, spp_ok)
 
+#feather::write_feather(grasslands_spp_q_q, path = "./data/grasslands_data")
 
+spp_mods <-
+        grasslands_spp_q_q %>%
+        group_by(species, type) %>%
+        nest()
+spp_mods
 
+# DEFINE A MODEL
+species_model <- function(dataframe){
+        lm(percent_cover ~ BG_pc + E_pc + E_diversity + management, data = dataframe)
+}
+
+# Apply the model to one species:
+spp_mods$data[[1]]
+spp_mods$data[[42]] %>% species_model()
+
+# APPLY THE MODEL
+spp_mods <-
+        spp_mods %>%
+        mutate(model = purrr::map(data, species_model))
+by_type
+# Get Coefs
+by_type 
+
+```
 
 
 
